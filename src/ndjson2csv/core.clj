@@ -1,14 +1,10 @@
 (ns ndjson2csv.core
   (:require
-   [jsonista.core :as j])
+   [jsonista.core :as j]
+   [clojure.data.csv :as csv])
   (:gen-class))
 
 (def memory (atom {}))
-(def mongo-keys [:_id :__v])
-
-(defn remove-keys
-  [m ks]
-  (reduce #(dissoc %1 %2) m ks))
 
 (defn deep-merge [v & vs]
   (letfn [(rec-merge [v1 v2]
@@ -22,7 +18,7 @@
 (defn merge-document
   [subjects doc]
   (update subjects
-          (get-in doc ["subject" "$oid"])
+          (get doc "subjectId")
           deep-merge
           doc))
 
@@ -37,35 +33,46 @@
                  [[(keyword prefix) v]])))
            form)))
 
+(defn compare-fields
+  [a b]
+  (cond
+    (and (clojure.string/includes? (name a) "data")
+         (clojure.string/includes? (name b) "data"))
+    0
+    (clojure.string/includes? (name a) "data") 1
+    :else -1))
+
 (defn extract-keys
   [subjects]
-  (reduce (fn [all-keys subject]
-            (into #{} (concat all-keys (keys subject))))
-          #{}
-          subjects))
+  (->> (reduce (fn [all-keys subject]
+                 (into #{} (concat all-keys (keys subject))))
+               #{}
+               subjects)
+       (sort compare-fields)))
 
 (defn maps->lines [fields m]
   (->> (map (fn [k] (get m k "")) fields)
       (clojure.string/join ",")))
 
 (defn write-csv! [fields maps]
+  (prn "Lines written: " (count maps))
   (let [lines (map (partial maps->lines fields) maps)]
     (with-open [w (clojure.java.io/writer "results.csv")]
-       (.write w (clojure.string/join "," fields))
+        (csv/write-csv writer
+             [["abc" "def"]
+              ["ghi" "jkl"]])
+       (.write w (clojure.string/join "," (map name fields)))
        (.newLine w)
       (doseq [line lines]
         (.write w line)
         (.newLine w)))))
 
-(defn clean-document [doc]
-  doc)
-
 (defn -main
   [& args]
   (with-open [rdr (clojure.java.io/reader (clojure.java.io/resource "results"))]
-    (let [results (take 300000 (line-seq rdr))]
+    (let [results (line-seq rdr)]
       (doseq [result results]
-        (swap! memory merge-document (clean-document (j/read-value result))))))
+        (swap! memory merge-document (j/read-value result)))))
   (swap! memory vals)
   (swap! memory (fn [subjects] (map #(flatten-map % ".") subjects)))
   (write-csv! (extract-keys @memory) @memory))
