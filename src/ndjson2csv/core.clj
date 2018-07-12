@@ -50,22 +50,15 @@
                subjects)
        (sort compare-fields)))
 
-(defn maps->lines [fields m]
-  (->> (map (fn [k] (get m k "")) fields)
-      (clojure.string/join ",")))
+(defn map->cells [fields m]
+  (vec (map (fn [k] (get m k "")) fields)))
 
 (defn write-csv! [fields maps]
-  (prn "Lines written: " (count maps))
-  (let [lines (map (partial maps->lines fields) maps)]
+  (let [cells (vec (map (partial map->cells fields) maps))]
     (with-open [w (clojure.java.io/writer "results.csv")]
-        (csv/write-csv writer
-             [["abc" "def"]
-              ["ghi" "jkl"]])
-       (.write w (clojure.string/join "," (map name fields)))
-       (.newLine w)
-      (doseq [line lines]
-        (.write w line)
-        (.newLine w)))))
+      (csv/write-csv w
+           (concat (conj [] (vec (map name fields))) cells))))
+  (prn (str "Lines written: " (count maps))))
 
 (defn -main
   [& args]
