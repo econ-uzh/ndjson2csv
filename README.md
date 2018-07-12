@@ -4,7 +4,7 @@ A small cli tool that prerocesses and transforms large ndjson (http://ndjson.org
 
 ## Usage
 
-`./ndjson2csv --help`
+> ndjson2csv --help
 
 ## Compiling from source
 
