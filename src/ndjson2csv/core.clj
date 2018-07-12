@@ -4,6 +4,7 @@
    [clojure.data.csv :as csv])
   (:gen-class))
 
+;; Deep-merging state in memory line-by-line
 (def memory (atom {}))
 
 (defn deep-merge [v & vs]
