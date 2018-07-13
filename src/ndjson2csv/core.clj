@@ -15,10 +15,26 @@
       (reduce #(rec-merge %1 %2) v vs)
       v)))
 
+(defn pre-process [doc]
+  (let [to-lift [["data" "social" "choiceId"]
+                 ["data" "risk" "choiceId"]
+                 ["data" "time" "choiceId"]]]
+    (cond
+      (get-in doc (first to-lift))
+      (update doc "data"
+                 #(clojure.set/rename-keys % {"social" (str "social_" (get-in % ["social" "choiceId"]))}))
+      (get-in doc (second to-lift))
+      (update doc "data"
+                 #(clojure.set/rename-keys % {"risk" (str "social_" (get-in % ["risk" "choiceId"]))}))
+      (get-in doc (nth to-lift 2))
+      (update doc "data"
+                 #(clojure.set/rename-keys % {"time" (keyword (str "time_" (get-in % ["time" "choiceId"])))}))
+      :else doc)))
+
 (defn merge-document
-  [acc doc]
+  [merge-with acc doc]
   (update acc
-          (get doc "subjectId")
+          (get doc merge-with)
           deep-merge
           doc))
 
@@ -52,21 +68,22 @@
   (let [cells (vec (map (partial map->cells fields) maps))]
     (with-open [w (clojure.java.io/writer file-name)]
       (csv/write-csv w
-           (concat (conj [] (vec (map name fields))) cells))))
+                     (concat (conj [] (vec (map name fields))) cells))))
   (println (str "Lines written: " (count maps))))
 
 (defn ndjson->map [lines merge-with separator]
-  (let [memory (atom {})]
-    (println (str "Processing ndjson lines"))
-    ;; load lines one by one into memory and process them
-    (if (nil? merge-with)
-      (doseq [line lines]
-        (swap! memory merge-document (j/read-value line)))
-      (doseq [[idx line] (map-indexed vector lines)]
-        (swap! memory assoc idx (j/read-value line))))
-    (swap! memory vals)
-    (swap! memory (fn [item] (map #(flatten-map % separator) item)))
-    @memory))
+  (let [memory (atom {})] (println (str "Processing ndjson lines"))
+  ;; load lines one by one into memory and process them
+       (if (not (nil? merge-with))
+         (do
+           (println "Merging with" merge-with)
+           (doseq [line lines]
+             (swap! memory (partial merge-document merge-with) (pre-process (j/read-value line)))))
+         (doseq [[idx line] (map-indexed vector lines)]
+           (swap! memory assoc idx (pre-process (j/read-value line)))))
+       (swap! memory vals)
+       (swap! memory (fn [item] (map #(flatten-map % separator) item)))
+       @memory))
 
 (def cli-options
   [["-l" "--lines NUMBER_LINES" "Number of lines to read from ndjson, can be used for testing"
