@@ -6,6 +6,8 @@ The CSV fields/headers are computed automatically by flattening the documents.
 
 ## Usage
 
+Download the binary from the [release page](https://github.com/econ-uzh/ndjson2csv/releases/download/0.1.0/ndjson2csv.zip)
+
 > ndjson2csv --help
 
 ## Compiling from source
