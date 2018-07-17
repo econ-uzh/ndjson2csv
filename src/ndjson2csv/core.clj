@@ -16,9 +16,9 @@
       v)))
 
 (defn merge-document
-  [acc doc]
+  [merge-with acc doc]
   (update acc
-          (get doc "subjectId")
+          (get doc merge-with)
           deep-merge
           doc))
 
@@ -52,21 +52,22 @@
   (let [cells (vec (map (partial map->cells fields) maps))]
     (with-open [w (clojure.java.io/writer file-name)]
       (csv/write-csv w
-           (concat (conj [] (vec (map name fields))) cells))))
+                     (concat (conj [] (vec (map name fields))) cells))))
   (println (str "Lines written: " (count maps))))
 
-(defn ndjson->map [lines merge-with separator]
-  (let [memory (atom {})]
-    (println (str "Processing ndjson lines"))
-    ;; load lines one by one into memory and process them
-    (if (nil? merge-with)
-      (doseq [line lines]
-        (swap! memory merge-document (j/read-value line)))
-      (doseq [[idx line] (map-indexed vector lines)]
-        (swap! memory assoc idx (j/read-value line))))
-    (swap! memory vals)
-    (swap! memory (fn [item] (map #(flatten-map % separator) item)))
-    @memory))
+(defn ndjson->map [lines merge-with separator pre-process]
+  (let [memory (atom {})] (println (str "Processing ndjson lines"))
+  ;; load lines one by one into memory and process them
+       (if (not (nil? merge-with))
+         (do
+           (println "Merging with" merge-with)
+           (doseq [line lines]
+             (swap! memory (partial merge-document merge-with) (pre-process (j/read-value line)))))
+         (doseq [[idx line] (map-indexed vector lines)]
+           (swap! memory assoc idx (pre-process (j/read-value line)))))
+       (swap! memory vals)
+       (swap! memory (fn [item] (map #(flatten-map % separator) item)))
+       @memory))
 
 (def cli-options
   [["-l" "--lines NUMBER_LINES" "Number of lines to read from ndjson, can be used for testing"
@@ -86,8 +87,18 @@
     :id :separator
     :default "."
     :validate [(complement clojure.string/blank?) "Must not be empty"]]
+   ["-p" "--pre--processor FILE" "Clojure file, containing a function named `process` that takes a map document as input and returns a processed version. This function is applied to all documents right after loading and parsing it."
+    :validate [(complement clojure.string/blank?) "Must not be empty"]
+    :id :pre-processor]
    ["-h" "--help"
     :default false]])
+
+(defn load-pre-processor [file-name]
+  (if (or (nil? file-name) (clojure.string/blank? file-name))
+    identity
+    (do
+      (println "Loading pre-processor" file-name)
+      (load-file file-name))))
 
 (defn -main
   [& args]
@@ -103,5 +114,6 @@
                                  (line-seq rdr)
                                  (take (:lines options) (line-seq rdr)))
                                (:merge options)
-                               (:separator options))]
+                               (:separator options)
+                               (load-pre-processor (:pre-processor options)))]
           (write-csv! (extract-keys acc) acc (:output options)))))))
