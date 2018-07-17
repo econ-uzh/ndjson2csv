@@ -30,7 +30,7 @@ Run `lein bin` in project root, the binary is `target/default/ndjson2csv`.
 
 Reading the first 1000 lines of input.json, merging by using the top-level key `subjectId` as id, preprocessing by calling the function `process` from the file `processor.clj` on each parsed document and writing to output.csv:
 
-> ndjson2csv -i input.json -l 1000 -m subjectId -o output.csv
+> ndjson2csv -i input.json -l 1000 -p examples/processor.clj -m subjectId -o output.csv
 
 ## License
 

@@ -1,7 +1,7 @@
 (defproject ndjson2csv "0.1.0"
   :description "NDJSON to CSV converter"
   :url "https://econ.uzh.ch"
-  :license {:name "Proprietary"
+  :license {:name "Eclipse Public License 1.0"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
   :dependencies [[org.clojure/clojure "1.8.0"]
                  [org.clojure/data.csv "0.1.4"]
