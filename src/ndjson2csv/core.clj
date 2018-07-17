@@ -15,22 +15,6 @@
       (reduce #(rec-merge %1 %2) v vs)
       v)))
 
-(defn pre-process [doc]
-  (let [to-lift [["data" "social" "choiceId"]
-                 ["data" "risk" "choiceId"]
-                 ["data" "time" "choiceId"]]]
-    (cond
-      (get-in doc (first to-lift))
-      (update doc "data"
-                 #(clojure.set/rename-keys % {"social" (str "social_" (get-in % ["social" "choiceId"]))}))
-      (get-in doc (second to-lift))
-      (update doc "data"
-                 #(clojure.set/rename-keys % {"risk" (str "social_" (get-in % ["risk" "choiceId"]))}))
-      (get-in doc (nth to-lift 2))
-      (update doc "data"
-                 #(clojure.set/rename-keys % {"time" (keyword (str "time_" (get-in % ["time" "choiceId"])))}))
-      :else doc)))
-
 (defn merge-document
   [merge-with acc doc]
   (update acc
@@ -71,7 +55,7 @@
                      (concat (conj [] (vec (map name fields))) cells))))
   (println (str "Lines written: " (count maps))))
 
-(defn ndjson->map [lines merge-with separator]
+(defn ndjson->map [lines merge-with separator pre-process]
   (let [memory (atom {})] (println (str "Processing ndjson lines"))
   ;; load lines one by one into memory and process them
        (if (not (nil? merge-with))
@@ -103,8 +87,18 @@
     :id :separator
     :default "."
     :validate [(complement clojure.string/blank?) "Must not be empty"]]
+   ["-p" "--pre--processor FILE" "Clojure file, containing a function named `process` that takes a map document as input and returns a processed version. This function is applied to all documents right after loading and parsing it."
+    :validate [(complement clojure.string/blank?) "Must not be empty"]
+    :id :pre-processor]
    ["-h" "--help"
     :default false]])
+
+(defn load-pre-processor [file-name]
+  (if (or (nil? file-name) (clojure.string/blank? file-name))
+    identity
+    (do
+      (println "Loading pre-processor" file-name)
+      (load-file file-name))))
 
 (defn -main
   [& args]
@@ -120,5 +114,6 @@
                                  (line-seq rdr)
                                  (take (:lines options) (line-seq rdr)))
                                (:merge options)
-                               (:separator options))]
+                               (:separator options)
+                               (load-pre-processor (:pre-processor options)))]
           (write-csv! (extract-keys acc) acc (:output options)))))))
