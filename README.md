@@ -2,6 +2,8 @@
 
 A small cli tool that prerocesses and transforms large ndjson (http://ndjson.org/) files without setting your hair on fire. It is especially useful to quickly process large JSON exports from MongoDB.
 
+The CSV fields/headers are computed automatically by flattening the documents.
+
 ## Usage
 
 > ndjson2csv --help
